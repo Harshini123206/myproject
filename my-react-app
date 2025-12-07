@@ -1,1 +1,56 @@
-my-react-app
+from flask import Flask, render_template, request
+from flask_mysqldb import MySQL
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'dev_secret_key')
+
+# ✅ MySQL Configuration (LOCAL)
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'root123'     # change if needed
+app.config['MYSQL_DB'] = 'testdb'
+app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+
+mysql = MySQL(app)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    msg = ''
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        email = request.form.get('email')
+
+        if not username or not password or not email:
+            msg = 'Please fill out all fields!'
+        else:
+            cur = mysql.connection.cursor()
+            cur.execute(
+                'SELECT * FROM users WHERE username = %s',
+                (username,)
+            )
+            account = cur.fetchone()
+
+            if account:
+                msg = 'Account already exists!'
+            else:
+                cur.execute(
+                    'INSERT INTO users (username, password, email) VALUES (%s, %s, %s)',
+                    (username, password, email)
+                )
+                mysql.connection.commit()
+                msg = 'You have successfully registered!'
+
+            cur.close()
+
+    return render_template('register.html', msg=msg)
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
